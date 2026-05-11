@@ -1,30 +1,42 @@
+import logging
+from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
-
-from fastapi import APIRouter
-
-from app.core.logger import get_logger
-from app.models.chat_model import ChatRequest, ChatResponse
+from app.schemas.chat_schema import ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
-
 
 router = APIRouter(
     prefix="/chat",
-    tags=["Chats"]
+    tags=["Chat"],
 )
 
-logger = get_logger(__name__)
-
+logger = logging.getLogger(__name__)
 chat_service = ChatService()
 
-@router.post(path="",response_model=ChatResponse)
-def chat(request: ChatRequest):
-    logger.info(f"Incoming request | user_id={request.user_id}")
+
+@router.post("", response_model=ChatResponse)
+async def chat(request: ChatRequest) -> ChatResponse:
+
+    logger.info(f"Request received | user_id={request.user_id}")
+    logger.debug(f"Query: {request.query[:100]}")
+
     try:
-        response = chat_service.get_response(message=request.message, user_id=request.user_id)
-        logger.info(f"Response generated | user_id={request.user_id}")
-        return ChatResponse(response=response)
-    except Exception as e:
-        logger.error(f"Error processing request | user_id={request.user_id} | error={str(e)}")
-        raise e
-    
-    
+        response = await run_in_threadpool(
+            chat_service.generate_response, request
+        )
+
+        logger.info(
+            f"Request completed | user_id={request.user_id} | can_answer={response.can_answer}"
+        )
+
+        return response
+
+    except Exception:
+        logger.exception(
+            f"Unhandled error in endpoint | user_id={request.user_id}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )

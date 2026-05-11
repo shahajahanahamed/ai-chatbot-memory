@@ -1,31 +1,24 @@
-from contextlib import asynccontextmanager
-from logging import getLogger
 from fastapi import FastAPI
 
+from app.core.config import get_settings
 from app.api.v1.endpoint import router as chat_router
-from app.core.logger import setup_logger
 
-# 1. Initialize your custom logging configuration
-setup_logger()
-logger = getLogger(__name__)
+settings = get_settings()
 
-# 2. Define the Lifespan manager (Replaces startup/shutdown events)
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # This runs on Startup
-    logger.info("🚀 Application started")
-    
-    yield  # The app is "alive" here
-    
-    # This runs on Shutdown
-    logger.info("🛑 Application shutting down")
-
-# 3. Initialize FastAPI with the lifespan
 app = FastAPI(
-    title="AI Chatbot with Memory",
-    version="0.0.1",
-    lifespan=lifespan
+    title="Chat with AI",
+    version=settings.APP_VERSION,
+    docs_url="/docs",          # Swagger UI
+    redoc_url="/redoc",        # ReDoc UI
+    openapi_url="/openapi.json"
 )
 
-# 4. Include Routers
-app.include_router(chat_router, prefix="/api/v1")
+# Add version prefix here
+app.include_router(
+    chat_router,
+    prefix="/api/v1",
+    responses={
+        200: {"description": "Ok"},
+        404: {"description": "Not found"}
+    }
+)
