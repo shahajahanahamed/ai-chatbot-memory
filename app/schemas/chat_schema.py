@@ -14,6 +14,12 @@ class ChatRequest(BaseModel):
         description="User ID must be a positive integer",
         examples=[123]
     )
+    session_id: str = Field(
+        ...,
+        min_length=1,
+        description="Session ID for tracking user session",
+        examples=["12345"]
+    )
 
 
 class ChatResponse(BaseModel):

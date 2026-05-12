@@ -24,41 +24,55 @@ class ChatService:
 
     def generate_response(self, request: ChatRequest) -> ChatResponse:
         user_id = request.user_id
+        session_id = request.session_id
 
         logger.info("Processing chat request", extra={"user_id": user_id})
 
         try:
-            # 1. Fetch history
-            history: List[Dict[str, str]] = MemoryService.get_history(user_id)
+            # 1. Fetch session-based history
+            history: List[Dict[str, str]] = MemoryService.get_history(
+                user_id, session_id
+            )
 
-            logger.debug("Fetched conversation history", extra={"user_id": user_id, "history_length": len(history)})
-
-            # 2. Build message payload
+            # 2. Build messages
             messages = [
-                           {"role": "system", "content": "You are a helpful AI assistant."}
+                           {"role": "system", "content": "You are a helpful AI assistant"}
                        ] + history + [
                            {"role": "user", "content": request.query}
                        ]
 
-            # 3. Generate response from LLM
+            # 3. Call LLM
             response = self.provider.generate_with_history(
                 user_id=user_id,
                 messages=messages
             )
 
-            # 4. Persist conversation (only if valid response)
+            # 4. Save messages in Redis (session-based)
             if response.can_answer:
-                MemoryService.save_message(user_id, "user", request.query)
-                MemoryService.save_message(user_id, "assistant", response.actual_answer)
-
-                logger.debug("Conversation saved to memory", extra={"user_id": user_id})
-
-            logger.info("Response generated successfully",
-                        extra={"user_id": user_id, "can_answer": response.can_answer})
+                MemoryService.save_message(
+                    user_id, session_id, "user", request.query
+                )
+                MemoryService.save_message(
+                    user_id, session_id, "assistant", response.actual_answer
+                )
 
             return response
 
-        except Exception:
-            logger.exception("Error in ChatService", extra={"user_id": user_id})
 
-            return ChatResponse(can_answer=False, actual_answer="Internal server error")
+        except Exception:
+
+            logger.exception(
+
+                "Error in ChatService",
+
+                extra={"user_id": user_id, "session_id": session_id}
+
+            )
+
+            return ChatResponse(
+
+                can_answer=False,
+
+                actual_answer="Internal server error"
+
+            )

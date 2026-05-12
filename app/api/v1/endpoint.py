@@ -4,6 +4,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.schemas.chat_schema import ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
+from app.services.memory_service import MemoryService
 
 router = APIRouter(
     prefix="/chat",
@@ -16,7 +17,6 @@ chat_service = ChatService()
 
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-
     logger.info(f"Request received | user_id={request.user_id}")
     logger.debug(f"Query: {request.query[:100]}")
 
@@ -40,3 +40,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
             status_code=500,
             detail="Internal server error"
         )
+
+
+@router.delete("/{user_id}/{session_id}")
+def clear_chat(user_id: int, session_id: str):
+    MemoryService.clear_history(user_id, session_id)
+    return {"message": "Chat cleared successfully"}

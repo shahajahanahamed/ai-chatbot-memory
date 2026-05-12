@@ -9,43 +9,75 @@ logger = logging.getLogger(__name__)
 
 class MemoryService:
 
+    TTL_SECONDS = 3600
+    MAX_MESSAGES = 10  # prevent infinite growth
+
     @staticmethod
-    def get_history(user_id: int) -> List[Dict[str, str]]:
+    def _get_key(user_id: int, session_id: str) -> str:
+        """
+        Build Redis key using user_id + session_id
+        Example: chat:1:abc123
+        """
+        return f"chat:{user_id}:{session_id}"
+
+    @staticmethod
+    def get_history(user_id: int, session_id: str) -> List[Dict[str, str]]:
         try:
-            data = redis_client.get(f"chat:{user_id}")
+            key = MemoryService._get_key(user_id, session_id)
+
+            data = redis_client.get(key)
 
             if not data:
                 return []
 
-            return json.loads(data)
+            history = json.loads(data)
+
+            return history
 
         except Exception:
             logger.exception(
-                "Redis error while fetching history",
-                extra={"user_id": user_id}
+                "Error fetching history from Redis",
+                extra={"user_id": user_id, "session_id": session_id}
             )
-
-            # ✅ fallback: no memory instead of crashing
             return []
 
     @staticmethod
-    def save_message(user_id: int, role: str, content: str):
+    def save_message(user_id: int, session_id: str, role: str, content: str):
         try:
-            history = MemoryService.get_history(user_id)
+            key = MemoryService._get_key(user_id, session_id)
 
+            history = MemoryService.get_history(user_id, session_id)
+
+            # Add new message
             history.append({
                 "role": role,
                 "content": content
             })
 
+            # Trim history (important)
+            if len(history) > MemoryService.MAX_MESSAGES:
+                history = history[-MemoryService.MAX_MESSAGES:]
+
             redis_client.set(
-                f"chat:{user_id}",
+                key,
                 json.dumps(history),
-                ex=3600
+                ex=MemoryService.TTL_SECONDS
             )
 
         except Exception:
             logger.exception(
-                "Redis error while saving message",
-                extra={"user_id": user_id}
+                "Error saving message to Redis",
+                extra={"user_id": user_id, "session_id": session_id}
+            )
+
+    @staticmethod
+    def clear_history(user_id: int, session_id: str):
+        try:
+            key = MemoryService._get_key(user_id, session_id)
+            redis_client.delete(key)
+
+        except Exception:
+            logger.exception(
+                "Error clearing history",
+                extra={"user_id": user_id, "session_id": session_id}
             )
