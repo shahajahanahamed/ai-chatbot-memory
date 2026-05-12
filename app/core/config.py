@@ -13,8 +13,11 @@ class Settings(BaseSettings):
 
     LLM_PROVIDER: str = "GROQ"
 
-    GROQ_API_KEY: SecretStr
+    GROQ_API_KEY: SecretStr | None = None
     GROQ_MODEL: str = "llama-3.1-8b-instant"
+
+    OPENAI_API_KEY: SecretStr | None = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
     LLM_TEMPERATURE: float = 0.1
     LLM_MAX_TOKENS: int = 1000

@@ -22,4 +22,4 @@ class LLMFactory:
             return OpenAIProvider()
 
         logger.error(f"Invalid LLM provider: {provider}")
-        raise ValueError(f"Unsupported LLM provider: {provider}"f"Unsupported LLM provider: {provider}")
+        raise ValueError(f"Unsupported LLM provider: {provider}")
